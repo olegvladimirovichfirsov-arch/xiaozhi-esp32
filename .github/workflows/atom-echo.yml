@@ -1,0 +1,47 @@
+name: Build M5Stack ATOM Echo
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [atom-echo]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v6.1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build (ru-RU, no wake word)
+        shell: bash
+        run: |
+          source "$IDF_PATH/export.sh"
+          idf.py --version | tee build-info.txt
+          echo "source: $(git rev-parse HEAD)" >> build-info.txt
+          python scripts/build.py m5stack/atom-echo --language ru-RU --wake-word disabled
+
+      - name: Size and partition report
+        shell: bash
+        run: |
+          source "$IDF_PATH/export.sh"
+          mkdir -p out
+          idf.py size            > out/size.txt 2>&1 || true
+          idf.py size-components > out/size-components.txt 2>&1 || true
+          python "$IDF_PATH/components/partition_table/gen_esp32part.py" build/partition_table/partition-table.bin > out/partitions.txt
+          ls -l build/*.bin >> out/size.txt
+          grep -E "^CONFIG_(BOARD_TYPE|LANGUAGE|ESPTOOLPY_FLASH|SPIRAM|WAKE_WORD|PARTITION_TABLE_CUSTOM_FILENAME)" build/config/sdkconfig.h sdkconfig 2>/dev/null | sort -u > out/sdkconfig-key.txt || true
+          cp build-info.txt build/merged-binary.bin build/xiaozhi.bin build/flash_args out/
+          cp build/bootloader/bootloader.bin build/partition_table/partition-table.bin out/
+          cp build/ota_data_initial.bin out/ 2>/dev/null || true
+          cp build/generated_assets.bin out/ 2>/dev/null || true
+          cat out/size.txt out/partitions.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xiaozhi-m5stack-atom-echo-${{ github.sha }}
+          path: out/
+          if-no-files-found: error

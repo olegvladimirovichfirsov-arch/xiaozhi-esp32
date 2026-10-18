@@ -1,0 +1,12 @@
+{
+    "manufacturer": "m5stack",
+    "type": "atom-echo",
+    "target": "esp32",
+    "builds": [
+        {
+            "name": "atom-echo",
+            "sdkconfig_append": [
+            ]
+        }
+    ]
+}

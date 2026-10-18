@@ -335,6 +335,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_M5STACK_ATOM_MATRIX_ECHO_BASE
         bool "M5Stack AtomMatrix + Echo Base"
         depends on IDF_TARGET_ESP32
+    config BOARD_TYPE_M5STACK_ATOM_ECHO
+        bool "M5Stack ATOM Echo"
+        depends on IDF_TARGET_ESP32
     config BOARD_TYPE_M5STACK_ATOM_S3_ECHO_BASE
         bool "M5Stack AtomS3 + Echo Base"
         depends on IDF_TARGET_ESP32S3
