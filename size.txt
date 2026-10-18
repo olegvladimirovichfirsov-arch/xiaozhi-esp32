@@ -1,0 +1,43 @@
+[0/2] Re-checking globbed directories...
+[1/4] cd /__w/xiaozhi-esp32/xiaozhi-esp32/build && /opt/esp/python_env/idf6.1_py3.12_env/bin/python /opt/esp/idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /__w/xiaozhi-esp32/xiaozhi-esp32/build/partition_table/partition-table.bin /__w/xiaozhi-esp32/xiaozhi-esp32/build/xiaozhi.bin
+xiaozhi.bin binary size 0x188cd0 bytes. Smallest app partition is 0x2f0000 bytes. 0x167330 bytes (48%) free.
+[2/4] Performing build step for 'bootloader'
+[1/1] cd /__w/xiaozhi-esp32/xiaozhi-esp32/build/bootloader && /opt/esp/python_env/idf6.1_py3.12_env/bin/python /opt/esp/idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x1000 /__w/xiaozhi-esp32/xiaozhi-esp32/build/bootloader/bootloader.bin
+Bootloader binary size 0x4f80 bytes. 0x2080 bytes (29%) free.
+[3/4] No install step for 'bootloader'
+[4/4] Completed 'bootloader'
+[0/2] Re-checking globbed directories...
+[0/1] cd /__w/xiaozhi-esp32/xiaozhi-esp32/build && /opt/esp/tools/cmake/4.0.3/bin/cmake -D "IDF_SIZE_TOOL=/opt/esp/python_env/idf6.1_py3.12_env/bin/python;-m;esp_idf_size" -D MAP_FILE=/__w/xiaozhi-esp32/xiaozhi-esp32/build/xiaozhi.map -D OUTPUT_JSON= -P /opt/esp/idf/tools/cmake/run_size_tool.cmake
+Memory Type Usage Summary
+┏━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Memory Type/Section   ┃ Used [bytes] ┃ Used [%] ┃ Remain [bytes] ┃ Total [bytes] ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ Flash Code            │      1091432 │          │                │               │
+│    .text              │      1091432 │          │                │               │
+│ Flash Data            │       432628 │          │                │               │
+│    .rodata            │       432344 │          │                │               │
+│    .appdesc           │          256 │          │                │               │
+│    .tdata             │           28 │          │                │               │
+│ IRAM                  │        60755 │    46.35 │          70317 │        131072 │
+│    .text              │        59727 │    45.57 │                │               │
+│    .vectors           │         1028 │     0.78 │                │               │
+│ DRAM                  │        51222 │    28.34 │         129514 │        180736 │
+│    .bss               │        27280 │    15.09 │                │               │
+│    .data              │        23942 │    13.25 │                │               │
+│ RTC SLOW              │           64 │     0.78 │           8128 │          8192 │
+│    .force_slow        │           40 │     0.49 │                │               │
+│    .rtc_slow_reserved │           24 │     0.29 │                │               │
+│ RTC FAST              │           16 │      0.2 │           8176 │          8192 │
+│    .rtc_fast_reserved │           16 │      0.2 │                │               │
+└───────────────────────┴──────────────┴──────────┴────────────────┴───────────────┘
+Total image size: 1608797 bytes (.bin may be padded larger)
+Note: The reported total sizes may be smaller than those in the technical reference manual due to reserved memory and application configuration. The total flash size available for the application is not included by default, as it cannot be reliably determined due to the presence of other data like the bootloader, partition table, and application partition size.
+Executing action: size
+Running ninja in directory /__w/xiaozhi-esp32/xiaozhi-esp32/build
+Executing "ninja all"...
+Running ninja in directory /__w/xiaozhi-esp32/xiaozhi-esp32/build
+Executing "ninja size"...
+-rw-r--r-- 1 root root  269881 Oct 18 16:24 build/generated_assets.bin
+-rw-r--r-- 1 root root 3415609 Oct 18 16:26 build/merged-binary.bin
+-rw-r--r-- 1 root root    8192 Oct 18 16:24 build/ota_data_initial.bin
+-rw-r--r-- 1 root root 1608912 Oct 18 16:26 build/xiaozhi.bin
