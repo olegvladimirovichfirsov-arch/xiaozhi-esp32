@@ -30,6 +30,11 @@ private:
         });
     }
 
+protected:
+    // After a power cut the router may boot slower than this board: keep
+    // retrying the saved network. Hold the button 3 s to enter Wi-Fi setup.
+    virtual bool KeepRetryingWifiOnTimeout() const override { return true; }
+
 public:
     // G39 is input-only with an external pull-up on the ATOM board; active low.
     AtomEchoBoard() : button_(BOOT_BUTTON_GPIO, false, 3000) {

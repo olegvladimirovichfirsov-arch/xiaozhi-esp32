@@ -161,6 +161,13 @@ void WifiBoard::SetNetworkEventCallback(NetworkEventCallback callback) {
 
 void WifiBoard::OnWifiConnectTimeout(void* arg) {
     auto* board = static_cast<WifiBoard*>(arg);
+    if (board->KeepRetryingWifiOnTimeout() &&
+        !SsidManager::GetInstance().GetSsidList().empty()) {
+        ESP_LOGW(TAG, "WiFi connection timeout, retrying");
+        WifiManager::GetInstance().StopStation();
+        board->TryWifiConnect();
+        return;
+    }
     ESP_LOGW(TAG, "WiFi connection timeout, entering config mode");
 
     WifiManager::GetInstance().StopStation();

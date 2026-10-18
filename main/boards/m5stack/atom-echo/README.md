@@ -15,3 +15,6 @@ Because GPIO33 is shared, audio is half-duplex: the device cannot listen while
 speaking. Interrupt playback with the button. No wake word (needs PSRAM on ESP32).
 
 Button: click = start/stop conversation; hold 3 s = Wi-Fi setup mode.
+
+If the saved Wi-Fi network is unavailable at boot (e.g. router still starting after a
+power cut), the board keeps retrying instead of falling back to hotspot mode.

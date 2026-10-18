@@ -36,6 +36,13 @@ protected:
      */
     static void OnWifiConnectTimeout(void* arg);
 
+    /**
+     * When true and an SSID is saved, a connection timeout restarts the
+     * connection attempt instead of entering config mode (e.g. the router
+     * boots slower than the device after a power cut). Default: false.
+     */
+    virtual bool KeepRetryingWifiOnTimeout() const { return false; }
+
 public:
     WifiBoard();
     virtual ~WifiBoard();
