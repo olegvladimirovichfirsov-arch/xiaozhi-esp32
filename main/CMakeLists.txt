@@ -17,6 +17,8 @@ set(SOURCES "audio/audio_codec.cc"
             "display/display.cc"
             "display/text_glyph.cc"
             "display/lcd_display.cc"
+            "display/modular/modular_display.cc"
+            "display/modular/procedural_character.cc"
             "display/oled_display.cc"
             "display/lvgl_display/lvgl_display.cc"
             "display/emote_display.cc"
@@ -425,6 +427,11 @@ elseif(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85C)
     set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
 elseif(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B)
     set(BOARD_DIR "waveshare/esp32-s3-touch-lcd-1.85b")
+    set(BUILTIN_TEXT_FONT font_noto_sans_basic_16_4)
+    set(BUILTIN_ICON_FONT font_material_symbols_16_4)
+    set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
+elseif(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B_MODUI)
+    set(BOARD_DIR "waveshare/esp32-s3-touch-lcd-1.85b-modui")
     set(BUILTIN_TEXT_FONT font_noto_sans_basic_16_4)
     set(BUILTIN_ICON_FONT font_material_symbols_16_4)
     set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
