@@ -31,3 +31,10 @@ jobs:
           name: modui_1.85b_${{ github.sha }}
           path: build/merged-binary.bin
           if-no-files-found: error
+
+      - name: Upload ELF (for crash decoding)
+        uses: actions/upload-artifact@v7
+        with:
+          name: modui_1.85b_${{ github.sha }}_elf
+          path: build/xiaozhi.elf
+          if-no-files-found: warn
