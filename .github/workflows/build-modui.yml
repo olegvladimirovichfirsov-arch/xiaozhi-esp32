@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           source "$IDF_PATH/export.sh"
-          python scripts/build.py esp32-s3-touch-lcd-1.85b-modui --name esp32-s3-touch-lcd-1.85b-modui --language ru-RU
+          python scripts/build.py waveshare/esp32-s3-touch-lcd-1.85b-modui --name esp32-s3-touch-lcd-1.85b-modui --language ru-RU
 
       - name: Upload merged image
         uses: actions/upload-artifact@v7
