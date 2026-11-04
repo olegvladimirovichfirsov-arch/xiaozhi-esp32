@@ -7,6 +7,7 @@
 #include "assets/lang_config.h"
 #include "lvgl_theme.h"
 #include "settings.h"
+#include "ha_client.h"
 
 #define TAG "ModularDisplay"
 
@@ -68,6 +69,7 @@ void ModularDisplay::SetupUI() {
         500, this);
 
     ApplyCharacterState();
+    HaClient::GetInstance().Start();
 }
 
 void ModularDisplay::ApplyCharacterState() {
