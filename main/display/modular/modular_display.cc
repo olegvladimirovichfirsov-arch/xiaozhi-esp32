@@ -22,6 +22,9 @@ ModularDisplay::~ModularDisplay() {
     character_.reset();
 }
 
+LV_FONT_DECLARE(ui_font_20);
+LV_FONT_DECLARE(ui_font_28);
+
 void ModularDisplay::SetupUI() {
     if (setup_ui_called_) {
         ESP_LOGW(TAG, "SetupUI() called multiple times, skipping duplicate call");
@@ -30,8 +33,7 @@ void ModularDisplay::SetupUI() {
     Display::SetupUI();  // marks SetupUI as called
     DisplayLockGuard lock(this);
 
-    auto* theme = static_cast<LvglTheme*>(current_theme_);
-    auto* text_font = theme->text_font()->font();
+    const lv_font_t* text_font = &ui_font_20;  // Latin + Cyrillic
 
     lv_obj_t* screen = lv_screen_active();
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
