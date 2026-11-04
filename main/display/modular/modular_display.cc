@@ -6,6 +6,7 @@
 
 #include "assets/lang_config.h"
 #include "lvgl_theme.h"
+#include "settings.h"
 
 #define TAG "ModularDisplay"
 
@@ -34,7 +35,9 @@ void ModularDisplay::SetupUI() {
     lv_obj_set_style_text_font(screen, text_font, 0);
     lv_obj_set_style_text_color(screen, lv_color_hex(0xE6E6E6), 0);
 
-    character_.reset(CreateProceduralCharacter());
+    Settings ui_settings("ui", false);
+    std::string character_id = ui_settings.GetString("character", "ghost_cat");
+    character_.reset(CreateCharacterById(character_id.c_str()));
     character_->Attach(screen);
 
     modular_status_label_ = lv_label_create(screen);

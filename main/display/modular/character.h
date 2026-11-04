@@ -35,4 +35,10 @@ public:
 // Built-in code-drawn character (no image assets needed).
 Character* CreateProceduralCharacter();
 
+// Built-in image packs by id ("ghost_cat", "gradient"); unknown ids fall back
+// to the procedural character.
+Character* CreateCharacterById(const char* id);
+int CharacterPackCount();
+const char* CharacterPackId(int index);
+
 #endif  // MODULAR_CHARACTER_H
