@@ -7,7 +7,9 @@
             "name": "esp32-s3-touch-lcd-1.85b-modui",
             "sdkconfig_append": [
                 "CONFIG_USE_WECHAT_MESSAGE_STYLE=n",
-                "CONFIG_USE_DEVICE_AEC=y"
+                "CONFIG_USE_DEVICE_AEC=y",
+                "CONFIG_LV_USE_TILEVIEW=y",
+                "CONFIG_LV_USE_KEYBOARD=y"
             ]
         }
     ]

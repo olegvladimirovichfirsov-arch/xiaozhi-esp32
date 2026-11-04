@@ -373,7 +373,7 @@ void ModularDisplay::ShowWifiPage() {
     lv_obj_set_style_border_width(wifi_page_, 0, 0);
     lv_obj_set_style_radius(wifi_page_, 0, 0);
     lv_obj_set_style_text_color(wifi_page_, lv_color_hex(0xE6E6E6), 0);
-    lv_obj_set_style_text_font(wifi_page_, lv_obj_get_style_text_font(lv_screen_active(), 0), 0);
+    lv_obj_set_style_text_font(wifi_page_, lv_obj_get_style_text_font(lv_screen_active(), LV_PART_MAIN), 0);
     lv_obj_remove_flag(wifi_page_, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t* title = lv_label_create(wifi_page_);
