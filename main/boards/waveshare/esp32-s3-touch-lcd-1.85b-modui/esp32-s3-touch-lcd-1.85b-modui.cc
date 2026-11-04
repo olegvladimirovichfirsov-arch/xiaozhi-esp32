@@ -10,6 +10,9 @@
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
 #include <esp_lcd_st77916.h>
+#include <esp_lcd_panel_io.h>
+#include <esp_lcd_touch_cst816s.h>
+#include <esp_lvgl_port.h>
 #define TAG "waveshare_lcd_1_85b"
 
 #define LCD_OPCODE_WRITE_CMD        (0x02ULL)
@@ -575,6 +578,42 @@ private:
                                     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
+    // The stock 1.85B board never registers the touch controller; the modular UI
+    // needs it for swipes and taps. CST816 shares the codec I2C bus.
+    void InitializeTouch() {
+        esp_lcd_touch_handle_t tp = nullptr;
+        esp_lcd_touch_config_t tp_cfg = {};
+        tp_cfg.x_max = DISPLAY_WIDTH;
+        tp_cfg.y_max = DISPLAY_HEIGHT;
+        tp_cfg.rst_gpio_num = TP_PIN_NUM_RST;
+        tp_cfg.int_gpio_num = TP_PIN_NUM_INT;
+        tp_cfg.levels.reset = 0;
+        tp_cfg.levels.interrupt = 0;
+        tp_cfg.flags.swap_xy = 0;
+        tp_cfg.flags.mirror_x = 0;
+        tp_cfg.flags.mirror_y = 0;
+
+        esp_lcd_panel_io_handle_t tp_io_handle = nullptr;
+        esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_CST816S_CONFIG();
+        tp_io_config.scl_speed_hz = 400 * 1000;
+        esp_err_t err = esp_lcd_new_panel_io_i2c(i2c_bus_, &tp_io_config, &tp_io_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Touch panel io init failed: %s", esp_err_to_name(err));
+            return;
+        }
+        err = esp_lcd_touch_new_i2c_cst816s(tp_io_handle, &tp_cfg, &tp);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Touch controller init failed: %s", esp_err_to_name(err));
+            return;
+        }
+        const lvgl_port_touch_cfg_t touch_cfg = {
+            .disp = lv_display_get_default(),
+            .handle = tp,
+        };
+        lvgl_port_add_touch(&touch_cfg);
+        ESP_LOGI(TAG, "Touch panel initialized");
+    }
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
@@ -602,6 +641,7 @@ public:
         st77916_reset();
         InitializeSpi();
         Initializest77916Display();
+        InitializeTouch();
         InitializeButtons();
         GetBacklight()->RestoreBrightness();
     }
