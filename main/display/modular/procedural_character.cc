@@ -63,6 +63,23 @@ lv_obj_t* MakeShape(lv_obj_t* parent, int w, int h, uint32_t color) {
 
 class ProceduralCharacter : public Character {
 public:
+    ~ProceduralCharacter() override {
+        if (body_ != nullptr) {
+            lv_anim_delete(body_, AnimSetY);
+            lv_anim_delete(mouth_, AnimSetHeight);
+        }
+        if (ring_ != nullptr) {
+            lv_anim_delete(ring_, AnimSetBorderOpa);
+            lv_obj_delete(ring_);
+        }
+        if (body_ != nullptr) {
+            lv_obj_delete(body_);
+        }
+        if (zzz_ != nullptr) {
+            lv_obj_delete(zzz_);
+        }
+    }
+
     void Attach(lv_obj_t* parent) override {
         ring_ = lv_obj_create(parent);
         lv_obj_remove_flag(ring_, LV_OBJ_FLAG_SCROLLABLE);

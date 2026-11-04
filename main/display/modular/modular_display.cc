@@ -12,6 +12,10 @@
 
 ModularDisplay::~ModularDisplay() {
     DisplayLockGuard lock(this);
+    if (ui_timer_ != nullptr) {
+        lv_timer_delete(ui_timer_);
+        ui_timer_ = nullptr;
+    }
     // Character widgets are children of the active screen; release our handle
     // before the base class tears the screen down.
     character_.reset();
@@ -35,12 +39,14 @@ void ModularDisplay::SetupUI() {
     lv_obj_set_style_text_font(screen, text_font, 0);
     lv_obj_set_style_text_color(screen, lv_color_hex(0xE6E6E6), 0);
 
-    Settings ui_settings("ui", false);
-    std::string character_id = ui_settings.GetString("character", "ghost_cat");
-    character_.reset(CreateCharacterById(character_id.c_str()));
-    character_->Attach(screen);
+    BuildTiles(screen);
 
-    modular_status_label_ = lv_label_create(screen);
+    Settings ui_settings("ui", false);
+    character_id_ = ui_settings.GetString("character", "ghost_cat");
+    character_.reset(CreateCharacterById(character_id_.c_str()));
+    character_->Attach(tile_main_);
+
+    modular_status_label_ = lv_label_create(tile_main_);
     lv_obj_set_width(modular_status_label_, 220);
     lv_obj_set_style_text_align(modular_status_label_, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_color(modular_status_label_, lv_color_hex(0xD7FF1E), 0);
@@ -48,12 +54,18 @@ void ModularDisplay::SetupUI() {
     lv_label_set_text(modular_status_label_, "");
     lv_obj_align(modular_status_label_, LV_ALIGN_TOP_MID, 0, 26);
 
-    subtitle_label_ = lv_label_create(screen);
+    subtitle_label_ = lv_label_create(tile_main_);
     lv_obj_set_width(subtitle_label_, 230);
     lv_obj_set_style_text_align(subtitle_label_, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(subtitle_label_, LV_LABEL_LONG_WRAP);
     lv_label_set_text(subtitle_label_, "");
     lv_obj_align(subtitle_label_, LV_ALIGN_BOTTOM_MID, 0, -30);
+
+    ui_timer_ = lv_timer_create(
+        [](lv_timer_t* t) {
+            static_cast<ModularDisplay*>(lv_timer_get_user_data(t))->OnUiTimer();
+        },
+        500, this);
 
     ApplyCharacterState();
 }

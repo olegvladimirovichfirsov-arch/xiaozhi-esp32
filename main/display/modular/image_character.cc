@@ -42,6 +42,13 @@ public:
         if (talk_timer_ != nullptr) {
             lv_timer_delete(talk_timer_);
         }
+        if (ring_ != nullptr) {
+            lv_anim_delete(ring_, AnimSetBorderOpa);
+            lv_obj_delete(ring_);
+        }
+        if (image_ != nullptr) {
+            lv_obj_delete(image_);
+        }
     }
 
     void Attach(lv_obj_t* parent) override {

@@ -20,6 +20,9 @@ set(SOURCES "audio/audio_codec.cc"
             "display/modular/modular_display.cc"
             "display/modular/procedural_character.cc"
             "display/modular/image_character.cc"
+            "display/modular/modular_ui.cc"
+            "display/modular/ha_client.cc"
+            "display/modular/settings_server.cc"
             "display/modular/pack_ghost_cat.c"
             "display/modular/pack_gradient.c"
             "display/oled_display.cc"
@@ -1121,6 +1124,13 @@ if(CONFIG_BOARD_TYPE_ESP_VOCAT AND IDF_VERSION_MAJOR LESS 6)
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA
         espressif__touch_slider_sensor
         espressif__touch_button_sensor
+    )
+endif()
+if(CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B_MODUI)
+    list(APPEND MAIN_PRIV_REQUIRES_EXTRA
+        esp_http_server
+        esp_wifi
+        json
     )
 endif()
 if(CONFIG_BOARD_TYPE_ESP32_P4_FUNCTION_EV_BOARD)
