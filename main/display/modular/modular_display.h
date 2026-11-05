@@ -37,9 +37,7 @@ public:
     void ShowWifiPage();
     void CloseWifiPage();
     void RebuildWifiList();
-    void SaveNewWifi();
     void StartScan();
-    void FillScanResults(const std::vector<std::string>& names);
     void ToggleSettingsServer();
     void OnUiTimer();
 
@@ -67,11 +65,6 @@ private:
     lv_obj_t* wifi_page_ = nullptr;
     lv_obj_t* wifi_list_ = nullptr;
     lv_obj_t* wifi_form_ = nullptr;
-    lv_obj_t* wifi_ssid_ta_ = nullptr;
-    lv_obj_t* wifi_pass_ta_ = nullptr;
-    lv_obj_t* wifi_scan_dd_ = nullptr;
-    lv_obj_t* wifi_keyboard_ = nullptr;
-    lv_obj_t* wifi_msg_label_ = nullptr;
     lv_timer_t* ui_timer_ = nullptr;
     uint32_t ha_version_seen_ = 0xFFFFFFFF;
     StatusKind status_kind_ = StatusKind::kIdle;

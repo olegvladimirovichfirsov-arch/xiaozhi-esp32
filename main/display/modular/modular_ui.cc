@@ -31,11 +31,6 @@ struct RowCtx {
     HaEntity entity;
 };
 
-struct ScanCtx {
-    ModularDisplay* self;
-    std::vector<std::string> names;
-};
-
 lv_obj_t* MakeList(lv_obj_t* parent, int w, int h, int y) {
     lv_obj_t* list = lv_obj_create(parent);
     lv_obj_set_size(list, w, h);
@@ -388,7 +383,7 @@ void ModularDisplay::ShowWifiPage() {
     lv_obj_align(add, LV_ALIGN_BOTTOM_MID, -66, -34);
     lv_obj_set_style_bg_color(add, lv_color_hex(kAccent), 0);
     lv_obj_t* al = lv_label_create(add);
-    lv_label_set_text(al, "Добавить");
+    lv_label_set_text(al, "С телефона");
     lv_obj_set_style_text_color(al, lv_color_black(), 0);
     lv_obj_center(al);
     lv_obj_add_event_cb(add, [](lv_event_t* e) {
@@ -413,8 +408,7 @@ void ModularDisplay::ShowWifiPage() {
 void ModularDisplay::CloseWifiPage() {
     if (wifi_page_ != nullptr) {
         lv_obj_delete(wifi_page_);
-        wifi_page_ = wifi_list_ = wifi_form_ = wifi_ssid_ta_ = wifi_pass_ta_ = nullptr;
-        wifi_scan_dd_ = wifi_keyboard_ = wifi_msg_label_ = nullptr;
+        wifi_page_ = wifi_list_ = wifi_form_ = nullptr;
     }
 }
 
@@ -455,15 +449,20 @@ void ModularDisplay::RebuildWifiList() {
     } else {
         lv_obj_t* h = lv_label_create(wifi_list_);
         lv_obj_set_style_text_color(h, lv_color_hex(0xB0B0B0), 0);
-        lv_label_set_text(h, "Удержать = удалить");
+        lv_label_set_text(h, "Удержать = удалить. Добавить: с телефона");
     }
 }
 
 void ModularDisplay::StartScan() {
-    if (wifi_form_ != nullptr) {
+    // Typing on a 1.85" round touch screen is miserable, so networks are added from
+    // the phone: start the web page and show its address and PIN right here.
+    if (wifi_page_ == nullptr || wifi_form_ != nullptr) {
         return;
     }
-    // Form overlay
+    auto& srv = SettingsServer::GetInstance();
+    bool ok = srv.Start();
+    std::string addr = srv.Address();
+
     wifi_form_ = lv_obj_create(wifi_page_);
     lv_obj_set_size(wifi_form_, LV_PCT(100), LV_PCT(100));
     lv_obj_set_style_bg_color(wifi_form_, lv_color_black(), 0);
@@ -472,117 +471,35 @@ void ModularDisplay::StartScan() {
     lv_obj_set_style_radius(wifi_form_, 0, 0);
     lv_obj_remove_flag(wifi_form_, LV_OBJ_FLAG_SCROLLABLE);
 
-    wifi_scan_dd_ = lv_dropdown_create(wifi_form_);
-    lv_obj_set_width(wifi_scan_dd_, 220);
-    lv_obj_align(wifi_scan_dd_, LV_ALIGN_TOP_MID, 0, 26);
-    lv_dropdown_set_options(wifi_scan_dd_, "Поиск сетей...");
-    lv_obj_add_event_cb(wifi_scan_dd_, [](lv_event_t* e) {
+    lv_obj_t* title = lv_label_create(wifi_form_);
+    lv_label_set_text(title, "Добавить с телефона");
+    lv_obj_set_style_text_color(title, lv_color_hex(kAccent), 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
+
+    lv_obj_t* body = lv_label_create(wifi_form_);
+    lv_obj_set_width(body, 250);
+    lv_obj_set_style_text_align(body, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    std::string text;
+    if (!ok || addr.empty()) {
+        text = "Колонка не подключена к сети. Подключитесь к любой сети и повторите.";
+    } else {
+        text = "Телефон и колонка в одной сети.\nОткройте в браузере:\n" + addr + "\n\nPIN: " + srv.pin();
+    }
+    lv_label_set_text(body, text.c_str());
+    lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 72);
+
+    lv_obj_t* close = lv_button_create(wifi_form_);
+    lv_obj_set_size(close, 140, 40);
+    lv_obj_align(close, LV_ALIGN_BOTTOM_MID, 0, -34);
+    lv_obj_set_style_bg_color(close, lv_color_hex(kRowOff), 0);
+    lv_obj_t* cl = lv_label_create(close);
+    lv_label_set_text(cl, "Готово");
+    lv_obj_center(cl);
+    lv_obj_add_event_cb(close, [](lv_event_t* e) {
         auto* self = static_cast<ModularDisplay*>(lv_event_get_user_data(e));
-        char buf[64];
-        lv_dropdown_get_selected_str(lv_event_get_target_obj(e), buf, sizeof(buf));
-        if (self->wifi_ssid_ta_ != nullptr && buf[0] != '\0' && buf[0] != '(') {
-            lv_textarea_set_text(self->wifi_ssid_ta_, buf);
-        }
-    }, LV_EVENT_VALUE_CHANGED, this);
-
-    wifi_ssid_ta_ = lv_textarea_create(wifi_form_);
-    lv_obj_set_size(wifi_ssid_ta_, 220, 36);
-    lv_obj_align(wifi_ssid_ta_, LV_ALIGN_TOP_MID, 0, 74);
-    lv_textarea_set_one_line(wifi_ssid_ta_, true);
-    lv_textarea_set_placeholder_text(wifi_ssid_ta_, "Имя сети");
-
-    wifi_pass_ta_ = lv_textarea_create(wifi_form_);
-    lv_obj_set_size(wifi_pass_ta_, 220, 36);
-    lv_obj_align(wifi_pass_ta_, LV_ALIGN_TOP_MID, 0, 116);
-    lv_textarea_set_one_line(wifi_pass_ta_, true);
-    lv_textarea_set_password_mode(wifi_pass_ta_, true);
-    lv_textarea_set_placeholder_text(wifi_pass_ta_, "Пароль");
-
-    wifi_msg_label_ = lv_label_create(wifi_form_);
-    lv_label_set_text(wifi_msg_label_, "");
-    lv_obj_set_style_text_color(wifi_msg_label_, lv_color_hex(kAccent), 0);
-    lv_obj_align(wifi_msg_label_, LV_ALIGN_TOP_MID, 0, 158);
-
-    wifi_keyboard_ = lv_keyboard_create(wifi_form_);
-    lv_obj_set_size(wifi_keyboard_, 300, 130);
-    lv_obj_align(wifi_keyboard_, LV_ALIGN_BOTTOM_MID, 0, -20);
-    lv_keyboard_set_textarea(wifi_keyboard_, wifi_ssid_ta_);
-    for (lv_obj_t* ta : {wifi_ssid_ta_, wifi_pass_ta_}) {
-        lv_obj_add_event_cb(ta, [](lv_event_t* e) {
-            auto* self = static_cast<ModularDisplay*>(lv_event_get_user_data(e));
-            lv_keyboard_set_textarea(self->wifi_keyboard_, lv_event_get_target_obj(e));
-        }, LV_EVENT_FOCUSED, this);
-    }
-    lv_obj_add_event_cb(wifi_keyboard_, [](lv_event_t* e) {
-        auto* self = static_cast<ModularDisplay*>(lv_event_get_user_data(e));
-        lv_event_code_t code = lv_event_get_code(e);
-        if (code == LV_EVENT_READY) {
-            self->SaveNewWifi();
-        } else if (code == LV_EVENT_CANCEL) {
-            lv_obj_delete(self->wifi_form_);
-            self->wifi_form_ = self->wifi_ssid_ta_ = self->wifi_pass_ta_ = nullptr;
-            self->wifi_scan_dd_ = self->wifi_keyboard_ = self->wifi_msg_label_ = nullptr;
-        }
-    }, LV_EVENT_ALL, this);
-
-    // Scan in a separate task: esp_wifi_scan_start(block=true) can take seconds.
-    xTaskCreate(
-        [](void* arg) {
-            auto* self = static_cast<ModularDisplay*>(arg);
-            std::vector<std::string> names;
-            wifi_scan_config_t cfg = {};
-            if (esp_wifi_scan_start(&cfg, true) == ESP_OK) {
-                uint16_t n = 0;
-                esp_wifi_scan_get_ap_num(&n);
-                if (n > 20) n = 20;
-                std::vector<wifi_ap_record_t> recs(n);
-                if (n > 0 && esp_wifi_scan_get_ap_records(&n, recs.data()) == ESP_OK) {
-                    std::set<std::string> seen;
-                    for (uint16_t i = 0; i < n; i++) {
-                        std::string s(reinterpret_cast<const char*>(recs[i].ssid));
-                        if (!s.empty() && seen.insert(s).second) {
-                            names.push_back(s);
-                        }
-                    }
-                }
-            }
-            DisplayLockGuard lock(self);
-            self->FillScanResults(names);
-            vTaskDelete(nullptr);
-        },
-        "wifi_scan", 6144, this, 3, nullptr);
-}
-
-void ModularDisplay::FillScanResults(const std::vector<std::string>& names) {
-    if (wifi_scan_dd_ == nullptr) {
-        return;
-    }
-    if (names.empty()) {
-        lv_dropdown_set_options(wifi_scan_dd_, "(сети не найдены)");
-        return;
-    }
-    std::string opts;
-    for (size_t i = 0; i < names.size(); i++) {
-        if (i) opts += "\n";
-        opts += names[i];
-    }
-    lv_dropdown_set_options(wifi_scan_dd_, opts.c_str());
-    lv_textarea_set_text(wifi_ssid_ta_, names[0].c_str());
-}
-
-void ModularDisplay::SaveNewWifi() {
-    if (wifi_ssid_ta_ == nullptr) {
-        return;
-    }
-    std::string ssid = lv_textarea_get_text(wifi_ssid_ta_);
-    std::string pass = lv_textarea_get_text(wifi_pass_ta_);
-    if (ssid.empty()) {
-        lv_label_set_text(wifi_msg_label_, "Введите имя сети");
-        return;
-    }
-    SsidManager::GetInstance().AddSsid(ssid, pass);
-    lv_obj_delete(wifi_form_);
-    wifi_form_ = wifi_ssid_ta_ = wifi_pass_ta_ = nullptr;
-    wifi_scan_dd_ = wifi_keyboard_ = wifi_msg_label_ = nullptr;
-    RebuildWifiList();
+        lv_obj_delete(self->wifi_form_);
+        self->wifi_form_ = nullptr;
+        self->RebuildWifiList();
+    }, LV_EVENT_CLICKED, this);
 }
