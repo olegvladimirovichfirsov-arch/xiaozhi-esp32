@@ -1,6 +1,8 @@
 #include <cstring>
+#include <new>
 
 #include "character.h"
+#include "ui_style.h"
 
 extern "C" {
 extern const lv_image_dsc_t ghost_cat_joy, ghost_cat_surprise, ghost_cat_thoughtful, ghost_cat_sad,
@@ -28,7 +30,7 @@ const PackImages kPacks[] = {
      &gradient_sleep, &gradient_greeting},
 };
 
-constexpr uint32_t kAccent = 0xD7FF1E;
+constexpr uint32_t kAccent = ModularStyle::kAccent;
 
 void AnimSetBorderOpa(void* obj, int32_t v) {
     lv_obj_set_style_border_opa(static_cast<lv_obj_t*>(obj), static_cast<lv_opa_t>(v), 0);
@@ -72,16 +74,21 @@ public:
                 self->Show(self->talk_phase_ ? self->pack_->greeting : self->pack_->joy);
             },
             320, this);
-        lv_timer_pause(talk_timer_);
+        if (talk_timer_)
+            lv_timer_pause(talk_timer_);
 
         SetState(CharacterState::kIdle);
     }
 
     void SetState(CharacterState state) override {
+        state_ = state;
+        if (!active_)
+            return;
         if (image_ == nullptr) {
             return;
         }
-        lv_timer_pause(talk_timer_);
+        if (talk_timer_)
+            lv_timer_pause(talk_timer_);
         lv_anim_delete(ring_, AnimSetBorderOpa);
         lv_obj_set_style_border_opa(ring_, LV_OPA_TRANSP, 0);
 
@@ -93,7 +100,8 @@ public:
             case CharacterState::kSpeaking:
                 Show(pack_->joy);
                 talk_phase_ = false;
-                lv_timer_resume(talk_timer_);
+                if (talk_timer_)
+                    lv_timer_resume(talk_timer_);
                 break;
             case CharacterState::kJoy:
             case CharacterState::kDone:
@@ -121,6 +129,20 @@ public:
         }
     }
 
+    void SetActive(bool active) override {
+        if (active == active_)
+            return;
+        active_ = active;
+        if (active)
+            SetState(state_);
+        else {
+            if (talk_timer_)
+                lv_timer_pause(talk_timer_);
+            lv_anim_delete(ring_, AnimSetBorderOpa);
+            lv_obj_set_style_border_opa(ring_, LV_OPA_TRANSP, 0);
+        }
+    }
+
 private:
     void Show(const lv_image_dsc_t* dsc) {
         if (dsc != current_) {
@@ -136,6 +158,7 @@ private:
         lv_anim_set_exec_cb(&a, AnimSetBorderOpa);
         lv_anim_set_values(&a, 40, 255);
         lv_anim_set_duration(&a, 700);
+        lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
         lv_anim_set_reverse_duration(&a, 700);
         lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
         lv_anim_start(&a);
@@ -147,6 +170,8 @@ private:
     lv_timer_t* talk_timer_ = nullptr;
     const lv_image_dsc_t* current_ = nullptr;
     bool talk_phase_ = false;
+    bool active_ = true;
+    CharacterState state_ = CharacterState::kIdle;
 };
 
 }  // namespace
@@ -155,7 +180,7 @@ Character* CreateCharacterById(const char* id) {
     if (id != nullptr) {
         for (const auto& p : kPacks) {
             if (strcmp(p.id, id) == 0) {
-                return new ImageCharacter(&p);
+                return new (std::nothrow) ImageCharacter(&p);
             }
         }
     }

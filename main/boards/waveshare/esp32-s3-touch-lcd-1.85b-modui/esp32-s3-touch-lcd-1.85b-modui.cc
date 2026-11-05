@@ -1,10 +1,9 @@
-#include "wifi_board.h"
-#include "display/modular/modular_display.h"
-#include "codecs/box_audio_codec.h"
 #include "application.h"
 #include "button.h"
+#include "codecs/box_audio_codec.h"
 #include "config.h"
-#include "power_save_timer.h"
+#include "display/modular/modular_display.h"
+#include "wifi_board.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -425,10 +424,9 @@ static const st77916_lcd_init_cmd_t vendor_specific_init_version_2[] = {
 
 class WaveshareEsp32s3TouchLcd1_85BModui : public WifiBoard {
 private:
-    i2c_master_bus_handle_t i2c_bus_;
+    i2c_master_bus_handle_t i2c_bus_ = nullptr;
     Button boot_button_;
-    Display* display_;
-    PowerSaveTimer* power_save_timer_;
+    Display* display_ = nullptr;
 
     static void st77916_reset(void)
     {
@@ -446,19 +444,6 @@ private:
         gpio_set_level(QSPI_PIN_NUM_LCD_RST,1);
         vTaskDelay(pdMS_TO_TICKS(10));
 
-    }
-
-    void InitializePowerSaveTimer() {
-        power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
-        power_save_timer_->OnEnterSleepMode([this]() {
-            GetDisplay()->SetPowerSaveMode(true);
-            GetBacklight()->SetBrightness(20); });
-        power_save_timer_->OnExitSleepMode([this]() {
-            GetDisplay()->SetPowerSaveMode(false);
-            GetBacklight()->RestoreBrightness(); });
-        // power_save_timer_->OnShutdownRequest([this](){ 
-        //     pmic_->PowerOff(); });
-        power_save_timer_->SetEnabled(true);
     }
 
     void InitializeCodecI2c() {
@@ -542,10 +527,8 @@ private:
         ESP_ERROR_CHECK(esp_lcd_panel_io_del(panel_io));
         panel_io = nullptr;
         io_config.pclk_hz = 80 * 1000 * 1000;
-        if (esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)QSPI_LCD_HOST, &io_config, &panel_io) != ESP_OK) {
-            printf("Failed to set LCD communication parameters -- SPI\r\n");
-            return ;
-        }
+        ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)QSPI_LCD_HOST,
+                                                 &io_config, &panel_io));
         printf("LCD communication parameters are set successfully -- SPI\r\n");
         
         // Check register values and configure accordingly
@@ -568,11 +551,16 @@ private:
         panel_config.vendor_config = &vendor_config;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st77916(panel_io, &panel_config, &panel));
 
-        esp_lcd_panel_reset(panel);
-        esp_lcd_panel_init(panel);
-        esp_lcd_panel_disp_on_off(panel, true);
-        esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
-        esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        ESP_ERROR_CHECK(esp_lcd_panel_reset(panel));
+        ESP_ERROR_CHECK(esp_lcd_panel_init(panel));
+        const auto optional_panel_setting = [](const char* operation, esp_err_t error) {
+            if (error != ESP_OK)
+                ESP_LOGW(TAG, "%s: %s", operation, esp_err_to_name(error));
+        };
+        optional_panel_setting("display on", esp_lcd_panel_disp_on_off(panel, true));
+        optional_panel_setting("swap xy", esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY));
+        optional_panel_setting("mirror",
+                               esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
 
         display_ = new ModularDisplay(panel_io, panel,
                                     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
@@ -610,13 +598,19 @@ private:
         err = esp_lcd_touch_new_i2c_cst816s(tp_io_handle, &tp_cfg, &tp);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "Touch controller init failed: %s", esp_err_to_name(err));
+            esp_lcd_panel_io_del(tp_io_handle);
             return;
         }
         const lvgl_port_touch_cfg_t touch_cfg = {
             .disp = lv_display_get_default(),
             .handle = tp,
         };
-        lvgl_port_add_touch(&touch_cfg);
+        if (touch_cfg.disp == nullptr || lvgl_port_add_touch(&touch_cfg) == nullptr) {
+            ESP_LOGE(TAG, "LVGL touch registration failed");
+            esp_lcd_touch_del(tp);
+            esp_lcd_panel_io_del(tp_io_handle);
+            return;
+        }
         ESP_LOGI(TAG, "Touch panel initialized");
     }
 
@@ -642,7 +636,6 @@ private:
 
 public:
     WaveshareEsp32s3TouchLcd1_85BModui() : boot_button_(BOOT_BUTTON_GPIO) {
-        InitializePowerSaveTimer();
         InitializeCodecI2c();
         st77916_reset();
         InitializeSpi();
@@ -679,9 +672,8 @@ public:
     }
 
     virtual void SetPowerSaveLevel(PowerSaveLevel level) override {
-        if (level != PowerSaveLevel::LOW_POWER) {
-            power_save_timer_->WakeUp();
-        }
+        if (display_)
+            display_->SetPowerSaveMode(level == PowerSaveLevel::LOW_POWER);
         WifiBoard::SetPowerSaveLevel(level);
     }
 };

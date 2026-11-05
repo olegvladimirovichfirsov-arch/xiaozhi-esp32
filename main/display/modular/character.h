@@ -30,6 +30,7 @@ public:
     virtual ~Character() = default;
     virtual void Attach(lv_obj_t* parent) = 0;
     virtual void SetState(CharacterState state) = 0;
+    virtual void SetActive(bool active) = 0;  // pause off-screen work
 };
 
 // Built-in code-drawn character (no image assets needed).

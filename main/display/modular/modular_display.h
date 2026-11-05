@@ -1,7 +1,10 @@
 #ifndef MODULAR_DISPLAY_H
 #define MODULAR_DISPLAY_H
 
+#include <atomic>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -30,6 +33,7 @@ public:
     void SetTheme(Theme* theme) override;
     void SetHideSubtitle(bool hide) override;
     void UpdateStatusBar(bool update_all = false) override;
+    void SetPowerSaveMode(bool on) override;
 
     // Used by static LVGL callbacks (modular_ui.cc).
     void OnHomeRowEvent(void* row_ctx, int event_code);
@@ -42,6 +46,22 @@ public:
     void OnUiTimer();
 
 private:
+    class UiLock {
+    public:
+        explicit UiLock(ModularDisplay* self, int timeout_ms = 50)
+            : self_(self), locked_(self->Lock(timeout_ms)) {}
+        ~UiLock() {
+            if (locked_)
+                self_->Unlock();
+        }
+        explicit operator bool() const { return locked_; }
+        UiLock(const UiLock&) = delete;
+        UiLock& operator=(const UiLock&) = delete;
+
+    private:
+        ModularDisplay* self_;
+        bool locked_;
+    };
     enum class StatusKind { kOther, kListening, kSpeaking, kIdle };
 
     void ApplyCharacterState();  // LVGL lock must be held
@@ -49,29 +69,58 @@ private:
     void BuildHomeTile();
     void BuildSettingsTile();
     void RefreshHome();
+    void FlushPendingUi();
 
     std::unique_ptr<Character> character_;
     lv_obj_t* tileview_ = nullptr;
     lv_obj_t* tile_settings_ = nullptr;
     lv_obj_t* tile_main_ = nullptr;
     lv_obj_t* tile_home_ = nullptr;
+    lv_obj_t* active_tile_seen_ = nullptr;
     lv_obj_t* modular_status_label_ = nullptr;
     lv_obj_t* subtitle_label_ = nullptr;
     lv_obj_t* home_list_ = nullptr;
     lv_obj_t* home_empty_label_ = nullptr;
+    lv_obj_t* home_spinner_ = nullptr;
+    lv_obj_t* home_connection_label_ = nullptr;
     lv_obj_t* char_row_label_ = nullptr;
     lv_obj_t* ha_row_label_ = nullptr;
     lv_obj_t* phone_info_label_ = nullptr;
     lv_obj_t* wifi_page_ = nullptr;
     lv_obj_t* wifi_list_ = nullptr;
     lv_obj_t* wifi_form_ = nullptr;
+    lv_obj_t* wifi_info_label_ = nullptr;
     lv_timer_t* ui_timer_ = nullptr;
     uint32_t ha_version_seen_ = 0xFFFFFFFF;
+    uint32_t wifi_version_seen_ = 0;
     StatusKind status_kind_ = StatusKind::kIdle;
     CharacterState emotion_state_ = CharacterState::kIdle;
     bool offline_ = false;
     std::string last_subtitle_;
     std::string character_id_;
+    std::map<std::string, lv_obj_t*> home_rows_;
+    std::vector<std::string> home_order_;
+    std::string status_text_;
+    std::string phone_text_;
+    uint32_t notification_started_ = 0;
+    uint32_t notification_duration_ = 0;
+    std::atomic<bool> allow_dim_{false};
+    std::atomic<bool> wake_requested_{false};
+    bool dimmed_ = false;
+    bool has_character_state_ = false;
+    CharacterState applied_state_ = CharacterState::kIdle;
+    enum PendingFlag : unsigned { kStatus = 1, kEmotion = 2, kChat = 4, kNotice = 8, kHide = 16 };
+    struct PendingUi {
+        unsigned flags = 0;
+        std::string status;
+        std::string notice;
+        CharacterState emotion = CharacterState::kIdle;
+        uint32_t notice_duration = 0;
+        bool hide = false;
+    };
+    std::mutex pending_mutex_;
+    PendingUi pending_;
+    uint32_t maintenance_at_ = 0;
 };
 
 #endif  // MODULAR_DISPLAY_H

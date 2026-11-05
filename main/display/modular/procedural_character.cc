@@ -1,6 +1,8 @@
 #include "character.h"
+#include "ui_style.h"
 
 #include <cstring>
+#include <new>
 
 namespace {
 
@@ -24,22 +26,31 @@ const Look& LookFor(CharacterState s) {
     static const Look kSleep{28, 4, 38, -18, 20, 5, 30, false, false, true, false};
     static const Look kOffline{16, 22, 38, -18, 30, 4, 40, false, false, false, true};
     switch (s) {
-        case CharacterState::kListening: return kListening;
+        case CharacterState::kListening:
+            return kListening;
         case CharacterState::kThinking:
-        case CharacterState::kThoughtful: return kThinking;
-        case CharacterState::kSpeaking: return kSpeaking;
+        case CharacterState::kThoughtful:
+            return kThinking;
+        case CharacterState::kSpeaking:
+            return kSpeaking;
         case CharacterState::kJoy:
         case CharacterState::kGreeting:
-        case CharacterState::kDone: return kJoy;
-        case CharacterState::kSurprise: return kSurprise;
-        case CharacterState::kSad: return kSad;
-        case CharacterState::kSleep: return kSleep;
-        case CharacterState::kOffline: return kOffline;
-        default: return kIdle;
+        case CharacterState::kDone:
+            return kJoy;
+        case CharacterState::kSurprise:
+            return kSurprise;
+        case CharacterState::kSad:
+            return kSad;
+        case CharacterState::kSleep:
+            return kSleep;
+        case CharacterState::kOffline:
+            return kOffline;
+        default:
+            return kIdle;
     }
 }
 
-constexpr uint32_t kAccent = 0xD7FF1E;
+constexpr uint32_t kAccent = ModularStyle::kAccent;
 constexpr uint32_t kBody = 0xF2F2F2;
 constexpr uint32_t kBodyDim = 0x7A7A7A;
 
@@ -83,7 +94,7 @@ public:
     void Attach(lv_obj_t* parent) override {
         ring_ = lv_obj_create(parent);
         lv_obj_remove_flag(ring_, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_size(ring_, 250, 270);
+        lv_obj_set_size(ring_, 236, 236);
         lv_obj_set_style_radius(ring_, LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_opa(ring_, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(ring_, 4, 0);
@@ -109,6 +120,9 @@ public:
     }
 
     void SetState(CharacterState state) override {
+        state_ = state;
+        if (!active_)
+            return;
         if (body_ == nullptr) {
             return;
         }
@@ -157,6 +171,21 @@ public:
         }
     }
 
+    void SetActive(bool active) override {
+        if (active == active_)
+            return;
+        active_ = active;
+        if (active) {
+            StartBreathing();
+            SetState(state_);
+        } else {
+            lv_anim_delete(body_, AnimSetY);
+            lv_anim_delete(mouth_, AnimSetHeight);
+            lv_anim_delete(ring_, AnimSetBorderOpa);
+            lv_obj_set_style_border_opa(ring_, LV_OPA_TRANSP, 0);
+        }
+    }
+
 private:
     void StartBreathing() {
         lv_anim_t a;
@@ -164,6 +193,7 @@ private:
         lv_anim_set_var(&a, body_);
         lv_anim_set_exec_cb(&a, AnimSetY);
         lv_anim_set_values(&a, 0, 8);
+        lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
         lv_anim_set_duration(&a, 2400);
         lv_anim_set_reverse_duration(&a, 2400);
         lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
@@ -176,6 +206,8 @@ private:
     lv_obj_t* eye_r_ = nullptr;
     lv_obj_t* mouth_ = nullptr;
     lv_obj_t* zzz_ = nullptr;
+    bool active_ = true;
+    CharacterState state_ = CharacterState::kIdle;
 };
 
 bool Is(const char* e, const char* const* list) {
@@ -193,18 +225,24 @@ CharacterState CharacterStateFromEmotion(const char* emotion) {
     if (emotion == nullptr) {
         return CharacterState::kIdle;
     }
-    static const char* const joy[] = {"happy", "laughing", "funny", "loving", "kissy", "delicious",
-                                      "winking", "cool", "confident", "silly", nullptr};
+    static const char* const joy[] = {"happy",     "laughing",  "funny",   "loving",
+                                      "kissy",     "delicious", "winking", "cool",
+                                      "confident", "silly",     nullptr};
     static const char* const sad[] = {"sad", "crying", "angry", "embarrassed", nullptr};
     static const char* const surprise[] = {"surprised", "shocked", nullptr};
     static const char* const thinking[] = {"thinking", "confused", nullptr};
     static const char* const sleep[] = {"sleepy", "relaxed", nullptr};
-    if (Is(emotion, joy)) return CharacterState::kJoy;
-    if (Is(emotion, sad)) return CharacterState::kSad;
-    if (Is(emotion, surprise)) return CharacterState::kSurprise;
-    if (Is(emotion, thinking)) return CharacterState::kThoughtful;
-    if (Is(emotion, sleep)) return CharacterState::kSleep;
+    if (Is(emotion, joy))
+        return CharacterState::kJoy;
+    if (Is(emotion, sad))
+        return CharacterState::kSad;
+    if (Is(emotion, surprise))
+        return CharacterState::kSurprise;
+    if (Is(emotion, thinking))
+        return CharacterState::kThoughtful;
+    if (Is(emotion, sleep))
+        return CharacterState::kSleep;
     return CharacterState::kIdle;
 }
 
-Character* CreateProceduralCharacter() { return new ProceduralCharacter(); }
+Character* CreateProceduralCharacter() { return new (std::nothrow) ProceduralCharacter(); }

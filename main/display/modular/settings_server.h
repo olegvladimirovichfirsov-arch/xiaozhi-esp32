@@ -1,33 +1,35 @@
 #ifndef MODULAR_SETTINGS_SERVER_H
 #define MODULAR_SETTINGS_SERVER_H
-
+#include <atomic>
+#include <mutex>
 #include <string>
 
-// Tiny phone-friendly web page for settings that are painful to type on a
-// 360x360 touch screen: Home Assistant URLs, token and label. It runs only
-// for a few minutes after the user opens it on the device and asks for a
-// 4-digit PIN that is shown on the device screen.
+// Start/Stop request work. Socket teardown never runs on LVGL/esp_timer.
 class SettingsServer {
 public:
     static SettingsServer& GetInstance();
-
-    bool Start();  // returns false if it cannot start
+    bool Start();
     void Stop();
-    bool IsRunning() const { return handle_ != nullptr; }
-    const std::string& pin() const { return pin_; }
-    const std::string& session() const { return session_; }
+    bool IsRunning() const;
+    bool IsRequested() const { return requested_.load(); }
+    std::string pin() const;
+    std::string session() const;
     std::string NewSession();
-    bool locked() const { return failures_ >= 5; }
+    bool locked() const { return failures_.load() >= 5; }
     void RegisterFailure() { failures_++; }
-    std::string Address() const;  // http://<ip>
+    std::string Address() const;
 
 private:
     SettingsServer() = default;
-    void* handle_ = nullptr;  // httpd_handle_t
-    void* timer_ = nullptr;   // esp_timer_handle_t
+    void Run();
+    bool Open();
+    void* handle_ = nullptr;  // worker-owned httpd_handle_t
+    std::atomic<bool> worker_started_{false};
+    std::atomic<bool> requested_{false};
+    std::atomic<int64_t> expires_us_{0};
+    mutable std::mutex mutex_;
     std::string pin_;
     std::string session_;
-    int failures_ = 0;
+    std::atomic<int> failures_{0};
 };
-
-#endif  // MODULAR_SETTINGS_SERVER_H
+#endif

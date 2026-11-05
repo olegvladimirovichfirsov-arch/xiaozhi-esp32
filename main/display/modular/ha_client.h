@@ -2,6 +2,7 @@
 #define MODULAR_HA_CLIENT_H
 
 #include <atomic>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -13,13 +14,16 @@ class WebSocket;
 
 // One Home Assistant entity shown on the speaker.
 struct HaEntity {
-    std::string id;      // light.living_room
-    std::string name;    // friendly name
-    std::string domain;  // light, scene, climate, switch...
-    std::string state;   // on/off/heat/unavailable...
+    std::string id;             // light.living_room
+    std::string name;           // friendly name
+    std::string domain;         // light, scene, climate, switch...
+    std::string state;          // on/off/heat/unavailable...
     int brightness = -1;        // 0..255, -1 = n/a
     float target_temp = -1000;  // climate target, -1000 = n/a
     float current_temp = -1000;
+    float min_temp = -1000;
+    float max_temp = -1000;
+    float temp_step = 0;
 };
 
 // Connects to Home Assistant over its WebSocket API and mirrors every entity
@@ -51,18 +55,26 @@ private:
     bool ConnectOnce(const std::string& base_url, const std::string& token);
     void HandleMessage(const char* data, size_t len);
     void FinishRegistry();
+    void RequestRegistry();
     void ApplyState(const std::string& id, const void* state_obj, bool partial);
     bool SendJson(void* cjson_obj);
     void SetStatus(const std::string& s);
 
     std::atomic<bool> connected_{false};
+    std::atomic<bool> configured_{false};
     std::atomic<bool> reconnect_{false};
     std::atomic<bool> started_{false};
     std::atomic<uint32_t> version_{0};
     std::atomic<int> next_id_{100};
 
-    std::mutex mutex_;       // guards entities_, status_
-    std::mutex send_mutex_;  // guards ws_ sends
+    std::mutex mutex_;  // guards entities_, status_
+    // Only Run() owns the socket and protocol state. Receive callbacks and UI
+    // submit bounded messages; neither performs a network send.
+    std::mutex queue_mutex_;
+    std::deque<std::string> incoming_;
+    std::deque<std::string> outgoing_;
+    size_t incoming_bytes_ = 0;
+    std::atomic<bool> queue_overflow_{false};
     std::string status_ = "не настроено";
     std::map<std::string, HaEntity> entities_;
     std::vector<std::string> order_;
@@ -75,6 +87,9 @@ private:
     bool got_registry_ = false;
     std::vector<std::pair<std::string, std::vector<std::string>>> registry_;  // id -> label ids
     bool auth_failed_ = false;
+    int labels_request_id_ = 0;
+    int registry_request_id_ = 0;
+    int subscription_id_ = 0;
 };
 
 #endif  // MODULAR_HA_CLIENT_H

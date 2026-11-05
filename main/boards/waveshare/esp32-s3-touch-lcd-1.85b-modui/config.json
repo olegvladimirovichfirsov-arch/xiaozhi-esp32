@@ -9,6 +9,8 @@
                 "CONFIG_USE_WECHAT_MESSAGE_STYLE=n",
                 "CONFIG_USE_DEVICE_AEC=y",
                 "CONFIG_LV_USE_TILEVIEW=y",
+                "CONFIG_LV_USE_SPINNER=y",
+                "CONFIG_LV_DEF_REFR_PERIOD=16",
                 "CONFIG_LV_USE_KEYBOARD=y"
             ]
         }
