@@ -140,30 +140,57 @@ bool LocalRequest(httpd_req_t* req) {
         return false;
     esp_netif_t* sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     esp_netif_ip_info_t info = {};
+    if (!sta || esp_netif_get_ip_info(sta, &info) != ESP_OK || info.ip.addr == 0 ||
+        info.netmask.addr == 0) {
+        ESP_LOGW(TAG, "reject: no STA ip");
+        return false;
+    }
     sockaddr_storage peer = {};
     socklen_t size = sizeof(peer);
-    if (!sta || esp_netif_get_ip_info(sta, &info) != ESP_OK || info.ip.addr == 0 ||
-        info.netmask.addr == 0 ||
-        getpeername(httpd_req_to_sockfd(req), reinterpret_cast<sockaddr*>(&peer), &size) != 0 ||
-        peer.ss_family != AF_INET)
+    if (getpeername(httpd_req_to_sockfd(req), reinterpret_cast<sockaddr*>(&peer), &size) != 0) {
+        ESP_LOGW(TAG, "reject: getpeername failed");
         return false;
-    auto address = reinterpret_cast<sockaddr_in*>(&peer)->sin_addr.s_addr;
-    if ((address & info.netmask.addr) != (info.ip.addr & info.netmask.addr))
+    }
+    uint32_t address = 0;
+    if (peer.ss_family == AF_INET) {
+        address = reinterpret_cast<sockaddr_in*>(&peer)->sin_addr.s_addr;
+    } else if (peer.ss_family == AF_INET6) {
+        // IPv4-mapped address ::ffff:a.b.c.d
+        const uint8_t* b6 = reinterpret_cast<sockaddr_in6*>(&peer)->sin6_addr.s6_addr;
+        static const uint8_t kMap[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
+        if (memcmp(b6, kMap, 12) != 0) {
+            ESP_LOGW(TAG, "reject: ipv6 peer");
+            return false;
+        }
+        memcpy(&address, b6 + 12, 4);
+    } else {
+        ESP_LOGW(TAG, "reject: family %d", static_cast<int>(peer.ss_family));
         return false;
+    }
+    if ((address & info.netmask.addr) != (info.ip.addr & info.netmask.addr)) {
+        ESP_LOGW(TAG, "reject: peer outside subnet");
+        return false;
+    }
+    // Host must be an IP literal (blocks DNS-rebinding names); the exact value is not compared
+    // because phones may add a port or omit it.
     char host[64] = {};
-    if (httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host)) != ESP_OK)
+    if (httpd_req_get_hdr_value_str(req, "Host", host, sizeof(host)) != ESP_OK) {
+        ESP_LOGW(TAG, "reject: no Host");
         return false;
-    const auto device_address = srv.Address();
-    if (device_address.size() <= 7)
-        return false;
-    const auto expected = device_address.substr(7);
-    if (host != expected && host != expected + ":80")
-        return false;
+    }
+    for (const char* p = host; *p; ++p) {
+        if (!isdigit(static_cast<unsigned char>(*p)) && *p != '.' && *p != ':') {
+            ESP_LOGW(TAG, "reject: Host not an IP literal: %s", host);
+            return false;
+        }
+    }
     if (req->method == HTTP_POST) {
         char header[8] = {};
         if (httpd_req_get_hdr_value_str(req, "X-Modui", header, sizeof(header)) != ESP_OK ||
-            strcmp(header, "1") != 0)
+            strcmp(header, "1") != 0) {
+            ESP_LOGW(TAG, "reject: missing X-Modui");
             return false;
+        }
     }
     return true;
 }
