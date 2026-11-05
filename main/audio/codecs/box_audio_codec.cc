@@ -1,3 +1,4 @@
+#include <cmath>
 #include "box_audio_codec.h"
 
 #include <esp_log.h>
@@ -247,13 +248,54 @@ void BoxAudioCodec::EnableOutput(bool enable) {
 int BoxAudioCodec::Read(int16_t* dest, int samples) {
     if (input_enabled_) {
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_read(input_dev_, (void*)dest, samples * sizeof(int16_t)));
+#ifdef CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B_MODUI
+        // Mic level diagnostics: peak and RMS of channel data, logged every ~3 s.
+        static int64_t sum_sq = 0;
+        static int32_t count = 0, peak = 0, clipped = 0;
+        for (int i = 0; i < samples; i++) {
+            int32_t v = dest[i];
+            int32_t a = v < 0 ? -v : v;
+            if (a > peak) peak = a;
+            if (a >= 32000) clipped++;
+            sum_sq += static_cast<int64_t>(v) * v;
+        }
+        count += samples;
+        if (count >= static_cast<int32_t>(input_sample_rate_) * 4 * 3) {
+            ESP_LOGI("MicLevel", "rms=%d peak=%d clipped=%d gain=%.0fdB", static_cast<int>(sqrt(static_cast<double>(sum_sq) / count)),
+                     static_cast<int>(peak), static_cast<int>(clipped), input_gain_);
+            sum_sq = 0; count = 0; peak = 0; clipped = 0;
+        }
+#endif
     }
     return samples;
 }
 
 int BoxAudioCodec::Write(const int16_t* data, int samples) {
     if (output_enabled_) {
+#ifdef CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B_MODUI
+        // Soft limiter: smoothly compress peaks above 24000 instead of hard clipping, which
+        // is what makes a small speaker rattle.
+        constexpr int32_t kKnee = 24000, kRoom = 32767 - kKnee;
+        int16_t buf[512];
+        int done = 0;
+        while (done < samples) {
+            int n = samples - done < 512 ? samples - done : 512;
+            for (int i = 0; i < n; i++) {
+                int32_t v = data[done + i];
+                int32_t a = v < 0 ? -v : v;
+                if (a > kKnee) {
+                    int32_t d = a - kKnee;
+                    a = kKnee + (d * kRoom) / (d + kRoom);
+                    v = v < 0 ? -a : a;
+                }
+                buf[i] = static_cast<int16_t>(v);
+            }
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_write(output_dev_, buf, n * sizeof(int16_t)));
+            done += n;
+        }
+#else
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_write(output_dev_, (void*)data, samples * sizeof(int16_t)));
+#endif
     }
     return samples;
 }

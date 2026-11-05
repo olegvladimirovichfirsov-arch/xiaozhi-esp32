@@ -254,9 +254,9 @@ void ModularDisplay::BuildSettingsTile() {
     lv_obj_set_size(vs, 196, 8);
     lv_obj_set_ext_click_area(vs, 18);
     lv_obj_align(vs, LV_ALIGN_BOTTOM_MID, 0, -18);
-    lv_slider_set_range(vs, 0, 100);
+    lv_slider_set_range(vs, 0, 80);  // above ~80% the small speaker distorts
     auto* codec = Board::GetInstance().GetAudioCodec();
-    lv_slider_set_value(vs, codec ? codec->output_volume() : 0, LV_ANIM_OFF);
+    lv_slider_set_value(vs, codec ? std::min(codec->output_volume(), 80) : 0, LV_ANIM_OFF);
     if (!codec)
         lv_obj_add_state(vs, LV_STATE_DISABLED);
     lv_obj_set_style_bg_color(vs, lv_color_hex(kAccent), LV_PART_INDICATOR);

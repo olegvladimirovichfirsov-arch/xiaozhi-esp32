@@ -1,3 +1,6 @@
+#include <esp_event.h>
+#include <esp_wifi.h>
+
 #include "application.h"
 #include "button.h"
 #include "codecs/box_audio_codec.h"
@@ -641,6 +644,9 @@ public:
         InitializeSpi();
         Initializest77916Display();
         InitializeTouch();
+        // The speaker is mains powered: Wi-Fi modem sleep only adds latency to voice streaming.
+        esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
+            [](void*, esp_event_base_t, int32_t, void*) { esp_wifi_set_ps(WIFI_PS_NONE); }, nullptr);
         InitializeButtons();
         GetBacklight()->RestoreBrightness();
     }
@@ -658,7 +664,8 @@ public:
             AUDIO_CODEC_PA_PIN, 
             AUDIO_CODEC_ES8311_ADDR, 
             AUDIO_CODEC_ES7210_ADDR, 
-            AUDIO_INPUT_REFERENCE);
+            AUDIO_INPUT_REFERENCE,
+            24.0f);  // mic gain dB: default 30 clips at close range and adds noise
         return &audio_codec;
     }
 
